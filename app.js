@@ -45,6 +45,32 @@ const REFRESH_INTERVAL_MS = 60 * 1000; // 60 seconds
 // Approximate one-way travel time for the 343 loop (seconds).
 // Station ↔ Floriande is ~12 min with 1 intermediate stop (Calatravabrug).
 const TRIP_DURATION_SECS = 720;
+const APP_TIMEZONE = "Europe/Amsterdam";
+
+const departureTimeFormatter = new Intl.DateTimeFormat("nl-NL", {
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: APP_TIMEZONE,
+});
+
+const footerTimeFormatter = new Intl.DateTimeFormat("nl-NL", {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  timeZone: APP_TIMEZONE,
+});
+
+const headerDateFormatter = new Intl.DateTimeFormat("en-US", {
+  weekday: "long",
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+  timeZone: APP_TIMEZONE,
+});
 
 // ---------- Core fetch ----------
 
@@ -286,11 +312,7 @@ function toDepartureObject(arrival) {
  * Format a Date as HH:MM in 24-hour, Europe/Amsterdam.
  */
 function formatClockTime(date) {
-  return date.toLocaleTimeString("nl-NL", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Europe/Amsterdam",
-  });
+  return departureTimeFormatter.format(date);
 }
 
 /**
@@ -310,6 +332,19 @@ function formatDelay(delaySeconds) {
   if (!delaySeconds || delaySeconds < 30) return "";
   const delayMinutes = Math.round(delaySeconds / 60);
   return `+${delayMinutes}m late`;
+}
+
+/**
+ * Format and render current weekday/date/time in the app header.
+ */
+function updateHeaderDateTime() {
+  const el = document.getElementById("app-datetime");
+  if (!el) return;
+
+  const now = new Date();
+  const dateTime = headerDateFormatter.format(now);
+
+  el.textContent = dateTime;
 }
 
 // ---------- Rendering ----------
@@ -442,13 +477,7 @@ async function refreshAll() {
 function updateLastUpdated() {
   const el = document.getElementById("last-updated");
   if (!el) return;
-  const now = new Date();
-  const time = now.toLocaleTimeString("nl-NL", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    timeZone: "Europe/Amsterdam",
-  });
+  const time = footerTimeFormatter.format(new Date());
   el.textContent = `Last updated: ${time}`;
 }
 
@@ -457,14 +486,17 @@ function updateLastUpdated() {
 // Initial load as soon as the script runs (which is after HTML is parsed,
 // thanks to the `defer` attribute on the script tag).
 refreshAll();
+updateHeaderDateTime();
 
 // Auto-refresh every 60 seconds.
 setInterval(refreshAll, REFRESH_INTERVAL_MS);
+setInterval(updateHeaderDateTime, 1000);
 
 // Also refresh when the tab becomes visible again (e.g. after your phone
 // was locked). Otherwise you'd stare at stale data for up to 60 seconds.
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     refreshAll();
+    updateHeaderDateTime();
   }
 });
