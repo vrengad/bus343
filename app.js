@@ -86,17 +86,44 @@ function extractLine343(data, direction) {
  * Get the soonest line-343 arrival at a stop for one specific headsign.
  * This lets us track each direction independently.
  */
-function extractNextArrivalForDirection(data, direction) {
+function extractNextArrivalForDirection(data, direction, maxPastSeconds = 30) {
   const arrivals = data?.arrivals ?? [];
   const nowSeconds = Math.floor(Date.now() / 1000);
 
   const upcoming = arrivals
     .filter((a) => a.route_short_name === "343")
     .filter((a) => a.trip_headsign === direction)
-    .filter((a) => a.ts >= nowSeconds - 30)
+    .filter((a) => a.ts >= nowSeconds - maxPastSeconds)
     .sort((a, b) => a.ts - b.ts);
 
   return upcoming.length > 0 ? upcoming[0] : null;
+}
+
+/**
+ * Fallback candidate when destination-arrival data is unavailable:
+ * infer in-trip progress from departures at the origin stop.
+ */
+function extractDepartureFallback(data, direction) {
+  const arrivals = data?.arrivals ?? [];
+  const nowSeconds = Math.floor(Date.now() / 1000);
+
+  const candidates = arrivals
+    .filter((a) => a.route_short_name === "343")
+    .filter((a) => a.trip_headsign === direction)
+    .filter((a) => a.ts >= nowSeconds - TRIP_DURATION_SECS)
+    .sort((a, b) => a.ts - b.ts);
+
+  if (candidates.length === 0) return null;
+
+  const pastOrNow = [...candidates].reverse().find((a) => a.ts <= nowSeconds + 30);
+  const next = candidates.find((a) => a.ts > nowSeconds + 30);
+  const chosen = pastOrNow || next;
+  if (!chosen) return null;
+
+  return {
+    ...chosen,
+    inferredArrivalTs: chosen.ts + TRIP_DURATION_SECS,
+  };
 }
 
 /**
@@ -111,14 +138,25 @@ function extractNextArrivalForDirection(data, direction) {
  * - Station stop + "Hoofddorp Floriande Zuidoost" = bus heading to Floriande.
  */
 function deriveBusPositions(floriandeData, stationData) {
-  const toStation = extractNextArrivalForDirection(
+  // Prefer destination-stop arrivals for interpolation; fallback to origin departures.
+  const toStationArrival = extractNextArrivalForDirection(
+    stationData,
+    "Hoofddorp Station"
+  );
+  const toStationDeparture = extractDepartureFallback(
     floriandeData,
     "Hoofddorp Station"
   );
-  const toFloriande = extractNextArrivalForDirection(
+  const toFloriandeArrival = extractNextArrivalForDirection(
+    floriandeData,
+    "Hoofddorp Floriande Zuidoost"
+  );
+  const toFloriandeDeparture = extractDepartureFallback(
     stationData,
     "Hoofddorp Floriande Zuidoost"
   );
+  const toStation = toStationArrival || toStationDeparture;
+  const toFloriande = toFloriandeArrival || toFloriandeDeparture;
   const nowSecs = Math.floor(Date.now() / 1000);
   const noService = {
     state: "no-service",
@@ -129,11 +167,12 @@ function deriveBusPositions(floriandeData, stationData) {
 
   if (!toStation && !toFloriande) return noService;
 
-  const secsUntil = (a) => Math.max(0, a.ts - nowSecs);
+  const secsUntilDestination = (a) =>
+    Math.max(0, (a.inferredArrivalTs || a.ts) - nowSecs);
   const buses = [];
 
   if (toStation) {
-    const secs = secsUntil(toStation);
+    const secs = secsUntilDestination(toStation);
     if (secs <= TRIP_DURATION_SECS) {
       const progress = Math.min(1, Math.max(0, 1 - secs / TRIP_DURATION_SECS));
       buses.push({
@@ -147,7 +186,7 @@ function deriveBusPositions(floriandeData, stationData) {
   }
 
   if (toFloriande) {
-    const secs = secsUntil(toFloriande);
+    const secs = secsUntilDestination(toFloriande);
     if (secs <= TRIP_DURATION_SECS) {
       const progress = Math.min(1, Math.max(0, 1 - secs / TRIP_DURATION_SECS));
       buses.push({
