@@ -14,6 +14,23 @@
       <p class="app__subtitle">Hoofddorp commute</p>
     </header>
 
+    <!-- Position strip: shows where the bus is on the 3-stop loop -->
+    <section id="position-strip" class="position-strip">
+      <div class="strip__track">
+        <div class="strip__line"></div>
+        <div class="strip__stop" style="left: 0%"></div>
+        <div class="strip__stop" style="left: 50%"></div>
+        <div class="strip__stop" style="left: 100%"></div>
+        <div class="strip__bus" id="strip-bus" style="display: none"></div>
+      </div>
+      <div class="strip__labels">
+        <span>Floriande</span>
+        <span>Calatravabrug</span>
+        <span>Station</span>
+      </div>
+      <p class="strip__status" id="strip-status">Locating bus…</p>
+    </section>
+
     <!-- Two commute cards. app.js will fill these in. -->
     <section class="card" id="card-home-to-station">
       <header class="card__header">

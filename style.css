@@ -182,6 +182,81 @@ body {
   color: var(--ink-muted);
 }
 
+/* ---------- Position Strip ---------- */
+.position-strip {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+  padding: 16px 16px 12px;
+}
+
+.strip__track {
+  position: relative;
+  height: 14px;
+  margin: 0 24px;
+}
+
+.strip__line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  transform: translateY(-50%);
+}
+
+.strip__stop {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 3px solid var(--accent);
+  background: var(--card-bg);
+  transform: translate(-50%, -50%);
+  z-index: 1;
+}
+
+.strip__bus {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  transform: translate(-50%, -50%);
+  transition: left 0.8s ease;
+  z-index: 2;
+}
+
+.strip__labels {
+  display: flex;
+  justify-content: space-between;
+  margin: 8px 24px 0;
+}
+
+.strip__labels span {
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
+.strip__status {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.strip__status--late {
+  color: var(--warn);
+  font-weight: 600;
+}
+
 /* ---------- Footer ---------- */
 .app__footer {
   margin-top: 24px;
