@@ -83,105 +83,182 @@ function extractLine343(data, direction) {
 }
 
 /**
- * Get the soonest line-343 arrival at a stop, regardless of direction.
- * Used by the position strip to determine where the bus is.
+ * Get the soonest line-343 arrival at a stop for one specific headsign.
+ * This lets us track each direction independently.
  */
-function extractNextArrivalAtStop(data) {
+function extractNextArrivalForDirection(data, direction, maxPastSeconds = 30) {
   const arrivals = data?.arrivals ?? [];
   const nowSeconds = Math.floor(Date.now() / 1000);
 
   const upcoming = arrivals
     .filter((a) => a.route_short_name === "343")
-    .filter((a) => a.ts >= nowSeconds - 30)
+    .filter((a) => a.trip_headsign === direction)
+    .filter((a) => a.ts >= nowSeconds - maxPastSeconds)
     .sort((a, b) => a.ts - b.ts);
 
   return upcoming.length > 0 ? upcoming[0] : null;
 }
 
 /**
- * Derive the bus's approximate position on the 3-stop loop from arrival data.
- * Returns { state, stripPercent (0–100), label, isLate }.
+ * Fallback candidate when destination-arrival data is unavailable:
+ * infer in-trip progress from departures at the origin stop.
+ */
+function extractDepartureFallback(data, direction) {
+  const arrivals = data?.arrivals ?? [];
+  const nowSeconds = Math.floor(Date.now() / 1000);
+
+  const candidates = arrivals
+    .filter((a) => a.route_short_name === "343")
+    .filter((a) => a.trip_headsign === direction)
+    .filter((a) => a.ts >= nowSeconds - TRIP_DURATION_SECS)
+    .sort((a, b) => a.ts - b.ts);
+
+  if (candidates.length === 0) return null;
+
+  const pastOrNow = [...candidates].reverse().find((a) => a.ts <= nowSeconds + 30);
+  const next = candidates.find((a) => a.ts > nowSeconds + 30);
+  const chosen = pastOrNow || next;
+  if (!chosen) return null;
+
+  return {
+    ...chosen,
+    inferredArrivalTs: chosen.ts + TRIP_DURATION_SECS,
+  };
+}
+
+/**
+ * Derive up to two independent bus positions from arrival data.
+ * Returns { state, buses, label, isLate } where each bus has:
+ * { key, stripPercent (0-100), directionLabel, minsUntilStop, isLate }.
  *
  * Layout: Floriande (0%) ——— Calatravabrug (50%) ——— Station (100%)
- * Direction is inferred by comparing the next arrival at each endpoint.
+ *
+ * Key insight used:
+ * - Floriande stop + "Hoofddorp Station" = bus heading to Station.
+ * - Station stop + "Hoofddorp Floriande Zuidoost" = bus heading to Floriande.
  */
-function deriveBusPosition(floriandeData, stationData) {
-  const nextFloriande = extractNextArrivalAtStop(floriandeData);
-  const nextStation = extractNextArrivalAtStop(stationData);
+function deriveBusPositions(floriandeData, stationData) {
+  // Prefer destination-stop arrivals for interpolation; fallback to origin departures.
+  const toStationArrival = extractNextArrivalForDirection(
+    stationData,
+    "Hoofddorp Station"
+  );
+  const toStationDeparture = extractDepartureFallback(
+    floriandeData,
+    "Hoofddorp Station"
+  );
+  const toFloriandeArrival = extractNextArrivalForDirection(
+    floriandeData,
+    "Hoofddorp Floriande Zuidoost"
+  );
+  const toFloriandeDeparture = extractDepartureFallback(
+    stationData,
+    "Hoofddorp Floriande Zuidoost"
+  );
+  const toStation = toStationArrival || toStationDeparture;
+  const toFloriande = toFloriandeArrival || toFloriandeDeparture;
   const nowSecs = Math.floor(Date.now() / 1000);
   const noService = {
     state: "no-service",
-    stripPercent: 0,
+    buses: [],
     label: "No bus running",
     isLate: false,
   };
 
-  if (!nextFloriande && !nextStation) return noService;
+  if (!toStation && !toFloriande) return noService;
 
-  const secsUntil = (a) => Math.max(0, a.ts - nowSecs);
+  const secsUntilDestination = (a) =>
+    Math.max(0, (a.inferredArrivalTs || a.ts) - nowSecs);
+  const buses = [];
 
-  // Only Floriande data → bus heading toward Floriande
-  if (!nextStation) {
-    const secs = secsUntil(nextFloriande);
-    if (secs <= 30)
-      return { state: "at-stop", stripPercent: 0, label: "Bus at Floriande", isLate: false };
-    const progress = Math.min(1, Math.max(0, 1 - secs / TRIP_DURATION_SECS));
+  if (toStation) {
+    const secs = secsUntilDestination(toStation);
+    if (secs <= TRIP_DURATION_SECS) {
+      const progress = Math.min(1, Math.max(0, 1 - secs / TRIP_DURATION_SECS));
+      buses.push({
+        key: "to-station",
+        stripPercent: progress * 100,
+        directionLabel: "to Station",
+        minsUntilStop: Math.ceil(secs / 60),
+        isLate: (toStation.punctuality || 0) > 60,
+      });
+    }
+  }
+
+  if (toFloriande) {
+    const secs = secsUntilDestination(toFloriande);
+    if (secs <= TRIP_DURATION_SECS) {
+      const progress = Math.min(1, Math.max(0, 1 - secs / TRIP_DURATION_SECS));
+      buses.push({
+        key: "to-floriande",
+        stripPercent: (1 - progress) * 100,
+        directionLabel: "to Floriande",
+        minsUntilStop: Math.ceil(secs / 60),
+        isLate: (toFloriande.punctuality || 0) > 60,
+      });
+    }
+  }
+
+  if (buses.length === 0) {
     return {
-      state: "moving",
-      stripPercent: (1 - progress) * 100,
-      label: `Approaching Floriande in ${Math.ceil(secs / 60)} min`,
-      isLate: (nextFloriande.punctuality || 0) > 60,
+      state: "no-service",
+      buses: [],
+      label: "No bus currently on this segment",
+      isLate: false,
     };
   }
 
-  // Only Station data → bus heading toward Station
-  if (!nextFloriande) {
-    const secs = secsUntil(nextStation);
-    if (secs <= 30)
-      return { state: "at-stop", stripPercent: 100, label: "Bus at Station", isLate: false };
-    const progress = Math.min(1, Math.max(0, 1 - secs / TRIP_DURATION_SECS));
-    return {
-      state: "moving",
-      stripPercent: progress * 100,
-      label: `Approaching Station in ${Math.ceil(secs / 60)} min`,
-      isLate: (nextStation.punctuality || 0) > 60,
-    };
+  const statuses = buses.map((bus) => {
+    if (bus.minsUntilStop <= 0) return `Arriving ${bus.directionLabel}`;
+    if (bus.minsUntilStop <= 1) return `${bus.directionLabel} in 1 min`;
+    return `${bus.directionLabel} in ${bus.minsUntilStop} min`;
+  });
+  const hasLateBus = buses.some((bus) => bus.isLate);
+
+  return {
+    state: buses.length > 1 ? "dual-moving" : "moving",
+    buses,
+    label: statuses.join(" · "),
+    isLate: hasLateBus,
+  };
+}
+
+/**
+ * Update the position strip with up to two buses (one per direction).
+ */
+function renderPositionStrip(pos) {
+  const busToStationEl = document.getElementById("strip-bus-to-station");
+  const busToFloriandeEl = document.getElementById("strip-bus-to-floriande");
+  const statusEl = document.getElementById("strip-status");
+  if (!busToStationEl || !busToFloriandeEl || !statusEl) return;
+
+  const busEls = {
+    "to-station": busToStationEl,
+    "to-floriande": busToFloriandeEl,
+  };
+
+  // Reset visibility first, then show only available buses.
+  busToStationEl.style.display = "none";
+  busToFloriandeEl.style.display = "none";
+
+  if (pos.state === "no-service") {
+    statusEl.textContent = pos.label;
+    statusEl.className = "strip__status";
+    return;
   }
 
-  // Both stops have data — compare arrival times to determine direction
-  const secsToStation = secsUntil(nextStation);
-  const secsToFloriande = secsUntil(nextFloriande);
-  const avgPunctuality =
-    ((nextStation.punctuality || 0) + (nextFloriande.punctuality || 0)) / 2;
-  const isLate = avgPunctuality > 60;
-
-  // Bus is at (or just arrived at) a stop
-  if (secsToStation <= 30)
-    return { state: "at-stop", stripPercent: 100, label: "Bus at Station", isLate };
-  if (secsToFloriande <= 30)
-    return { state: "at-stop", stripPercent: 0, label: "Bus at Floriande", isLate };
-
-  if (secsToStation <= secsToFloriande) {
-    // Heading toward Station (left → right on strip)
-    const progress = Math.min(1, Math.max(0, 1 - secsToStation / TRIP_DURATION_SECS));
-    const mins = Math.ceil(secsToStation / 60);
-    return {
-      state: "moving",
-      stripPercent: progress * 100,
-      label: mins <= 1 ? "Arriving at Station" : `Approaching Station in ${mins} min`,
-      isLate,
-    };
-  } else {
-    // Heading toward Floriande (right → left on strip)
-    const progress = Math.min(1, Math.max(0, 1 - secsToFloriande / TRIP_DURATION_SECS));
-    const mins = Math.ceil(secsToFloriande / 60);
-    return {
-      state: "moving",
-      stripPercent: (1 - progress) * 100,
-      label: mins <= 1 ? "Arriving at Floriande" : `Approaching Floriande in ${mins} min`,
-      isLate,
-    };
+  for (const bus of pos.buses) {
+    const busEl = busEls[bus.key];
+    if (!busEl) continue;
+    busEl.style.display = "";
+    busEl.style.left = bus.stripPercent + "%";
   }
+
+  const label = pos.isLate ? `${pos.label} · running late` : pos.label;
+  statusEl.textContent = label;
+  statusEl.className = pos.isLate
+    ? "strip__status strip__status--late"
+    : "strip__status";
 }
 
 /**
@@ -315,31 +392,6 @@ function renderError(cardId, message) {
 }
 
 /**
- * Update the position strip with the bus's current location.
- */
-function renderPositionStrip(pos) {
-  const busEl = document.getElementById("strip-bus");
-  const statusEl = document.getElementById("strip-status");
-  if (!busEl || !statusEl) return;
-
-  if (pos.state === "no-service") {
-    busEl.style.display = "none";
-    statusEl.textContent = pos.label;
-    statusEl.className = "strip__status";
-    return;
-  }
-
-  busEl.style.display = "";
-  busEl.style.left = pos.stripPercent + "%";
-
-  const label = pos.isLate ? pos.label + " · running late" : pos.label;
-  statusEl.textContent = label;
-  statusEl.className = pos.isLate
-    ? "strip__status strip__status--late"
-    : "strip__status";
-}
-
-/**
  * Tiny escape-html helper to prevent any weird data from breaking the page.
  * Not strictly needed for trusted data, but good hygiene.
  */
@@ -378,7 +430,7 @@ async function refreshAll() {
   const rawData = await Promise.all(STOPS.map(refreshOneStop));
 
   // STOPS[0] = Floriande (3894530), STOPS[1] = Station (3894616)
-  const pos = deriveBusPosition(rawData[0], rawData[1]);
+  const pos = deriveBusPositions(rawData[0], rawData[1]);
   renderPositionStrip(pos);
 
   updateLastUpdated();
