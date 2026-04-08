@@ -266,6 +266,27 @@ body {
   z-index: 2;
 }
 
+.strip__bus::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transform: translateY(-50%);
+}
+
+.strip__bus--to-station::after {
+  left: 13px;
+  border-left: 6px solid var(--accent);
+}
+
+.strip__bus--to-floriande::after {
+  right: 13px;
+  border-right: 6px solid var(--accent);
+}
+
 .strip__labels {
   display: flex;
   justify-content: space-between;
