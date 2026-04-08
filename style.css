@@ -182,6 +182,38 @@ body {
   color: var(--ink-muted);
 }
 
+/* ---------- Catchability ---------- */
+.departure--catchable {
+  border-left: 3px solid var(--good);
+}
+
+.departure--run {
+  border-left: 3px solid var(--warn);
+}
+
+.departure--missed {
+  opacity: 0.5;
+}
+
+.departure--missed .departure__minutes {
+  text-decoration: line-through;
+  color: var(--ink-muted);
+}
+
+.departure__catch {
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.departure__catch--go {
+  color: var(--good);
+}
+
+.departure__catch--run {
+  color: var(--warn);
+}
+
 /* ---------- Position Strip ---------- */
 .position-strip {
   background: var(--card-bg);

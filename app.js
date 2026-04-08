@@ -11,20 +11,28 @@
 // Change this if you redeploy the proxy under a different name.
 const PROXY_BASE = "https://bus343-proxy.vrengad.workers.dev";
 
+// Travel time from home/station to the bus stop (minutes).
+// Used to calculate whether you can still catch a departure.
+const HOME_TRAVEL_MINUTES = 6;    // cycling from home to Floriande stop
+const STATION_WALK_MINUTES = 2;   // walk from train platform to bus platform C
+
 // The two stops we care about. Each one has:
 //   - id:         ovzoeker's internal stop_id (used in the API path)
 //   - cardId:     DOM id of the card where this stop's data should render
 //   - direction:  the trip_headsign we want to filter to
+//   - walkMinutes: travel time to reach this stop (for catchability indicator)
 const STOPS = [
   {
     id: "3894530",
     cardId: "card-home-to-station",
     direction: "Hoofddorp Station",
+    walkMinutes: HOME_TRAVEL_MINUTES,
   },
   {
     id: "3894616",
     cardId: "card-station-to-home",
     direction: "Hoofddorp Floriande Zuidoost",
+    walkMinutes: STATION_WALK_MINUTES,
   },
 ];
 
@@ -232,7 +240,7 @@ function formatDelay(delaySeconds) {
 /**
  * Render a list of departures into a card, or an empty-state message.
  */
-function renderCard(cardId, departures) {
+function renderCard(cardId, departures, walkMinutes) {
   const card = document.getElementById(cardId);
   if (!card) return;
   const body = card.querySelector(".card__body");
@@ -246,7 +254,7 @@ function renderCard(cardId, departures) {
   body.dataset.state = "ok";
   body.innerHTML = `
     <ul class="departures">
-      ${departures.map(renderDepartureRow).join("")}
+      ${departures.map((d) => renderDepartureRow(d, walkMinutes)).join("")}
     </ul>
   `;
 }
@@ -254,7 +262,7 @@ function renderCard(cardId, departures) {
 /**
  * Render one departure row. Returns an HTML string.
  */
-function renderDepartureRow(d) {
+function renderDepartureRow(d, walkMinutes) {
   const liveTag = d.isLive
     ? `<span class="live">● live</span>`
     : `<span>scheduled</span>`;
@@ -263,8 +271,24 @@ function renderDepartureRow(d) {
     ? ` · <span class="delay">${formatDelay(d.delaySeconds)}</span>`
     : "";
 
+  // Catchability: can you still reach the stop in time?
+  let catchClass = "";
+  let catchLabel = "";
+  if (walkMinutes != null) {
+    if (d.minutesLeft >= walkMinutes + 1) {
+      catchClass = " departure--catchable";
+      const leaveIn = d.minutesLeft - walkMinutes;
+      catchLabel = `<div class="departure__catch departure__catch--go">Leave in ${leaveIn} min</div>`;
+    } else if (d.minutesLeft >= walkMinutes - 1) {
+      catchClass = " departure--run";
+      catchLabel = `<div class="departure__catch departure__catch--run">Leave now!</div>`;
+    } else {
+      catchClass = " departure--missed";
+    }
+  }
+
   return `
-    <li class="departure">
+    <li class="departure${catchClass}">
       <div class="departure__line">${escapeHtml(d.line)}</div>
       <div class="departure__main">
         <div class="departure__destination">${escapeHtml(d.destination)}</div>
@@ -273,6 +297,7 @@ function renderDepartureRow(d) {
       <div class="departure__time">
         <div class="departure__minutes">${formatMinutesLeft(d.minutesLeft)}</div>
         <div class="departure__clock">${d.clockTime}</div>
+        ${catchLabel}
       </div>
     </li>
   `;
@@ -337,7 +362,7 @@ async function refreshOneStop(stop) {
   try {
     const data = await fetchStop(stop.id);
     const departures = extractLine343(data, stop.direction);
-    renderCard(stop.cardId, departures);
+    renderCard(stop.cardId, departures, stop.walkMinutes);
     return data;
   } catch (err) {
     console.error(`Failed to load stop ${stop.id}:`, err);
