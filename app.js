@@ -143,8 +143,18 @@ function extractDepartureFallback(data, direction) {
 
   const pastOrNow = [...candidates].reverse().find((a) => a.ts <= nowSeconds + 30);
   const next = candidates.find((a) => a.ts > nowSeconds + 30);
-  const chosen = pastOrNow || next;
+  let chosen = pastOrNow || next;
   if (!chosen) return null;
+
+  // If the API has already dropped the departed bus, infer it from the schedule gap.
+  // E.g. next departures at 07:30 and 07:45 → gap 15 min → previous was 07:15.
+  if (!pastOrNow && next && candidates.length >= 2) {
+    const gap = candidates[1].ts - candidates[0].ts;
+    const inferredPrevTs = next.ts - gap;
+    if (inferredPrevTs >= nowSeconds - TRIP_DURATION_SECS && inferredPrevTs < nowSeconds) {
+      chosen = { ...next, ts: inferredPrevTs };
+    }
+  }
 
   return {
     ...chosen,
