@@ -47,6 +47,13 @@ const REFRESH_INTERVAL_MS = 60 * 1000; // 60 seconds
 const TRIP_DURATION_SECS = 720;
 const APP_TIMEZONE = "Europe/Amsterdam";
 
+const WEATHER_API_URL =
+  "https://api.open-meteo.com/v1/forecast" +
+  "?latitude=52.302&longitude=4.693" +
+  "&current=temperature_2m,weather_code,wind_speed_10m,precipitation" +
+  "&timezone=Europe%2FAmsterdam";
+const WEATHER_REFRESH_MS = 10 * 60 * 1000;
+
 const departureTimeFormatter = new Intl.DateTimeFormat("nl-NL", {
   hour: "2-digit",
   minute: "2-digit",
@@ -60,14 +67,15 @@ const footerTimeFormatter = new Intl.DateTimeFormat("nl-NL", {
   timeZone: APP_TIMEZONE,
 });
 
-const headerDateFormatter = new Intl.DateTimeFormat("en-US", {
-  weekday: "long",
-  year: "numeric",
-  month: "long",
+const headerDateOnlyFormatter = new Intl.DateTimeFormat("en-GB", {
+  weekday: "short",
   day: "numeric",
+  month: "short",
+  timeZone: APP_TIMEZONE,
+});
+const headerTimeOnlyFormatter = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit",
   minute: "2-digit",
-  second: "2-digit",
   hour12: false,
   timeZone: APP_TIMEZONE,
 });
@@ -350,11 +358,47 @@ function formatDelay(delaySeconds) {
 function updateHeaderDateTime() {
   const el = document.getElementById("app-datetime");
   if (!el) return;
-
   const now = new Date();
-  const dateTime = headerDateFormatter.format(now);
+  el.textContent =
+    headerDateOnlyFormatter.format(now) + " • " + headerTimeOnlyFormatter.format(now);
+}
 
-  el.textContent = dateTime;
+// ---------- Weather ----------
+
+function weatherCodeToEmoji(code) {
+  if (code === 0)                 return "☀️";
+  if (code === 1)                 return "🌤️";
+  if (code === 2)                 return "⛅";
+  if (code === 3)                 return "☁️";
+  if (code === 45 || code === 48) return "🌫️";
+  if (code >= 51 && code <= 57)   return "🌦️";
+  if (code >= 61 && code <= 67)   return "🌧️";
+  if (code >= 71 && code <= 77)   return "❄️";
+  if (code >= 80 && code <= 82)   return "🌦️";
+  if (code >= 95 && code <= 99)   return "⛈️";
+  return "🌡️";
+}
+
+function renderWeather(data) {
+  const el = document.getElementById("app-weather");
+  if (!el) return;
+  const c = data?.current;
+  if (!c) { el.textContent = ""; return; }
+  const emoji = weatherCodeToEmoji(c.weather_code);
+  const temp  = Math.round(c.temperature_2m);
+  const windPart = c.wind_speed_10m > 15 ? ` · ${Math.round(c.wind_speed_10m)}↗` : "";
+  const rainPart = c.precipitation > 0 ? " 🌂" : "";
+  el.textContent = `${emoji} ${temp}°C${windPart}${rainPart}`;
+}
+
+async function fetchWeather() {
+  try {
+    const res = await fetch(WEATHER_API_URL, { cache: "no-store" });
+    if (!res.ok) return;
+    renderWeather(await res.json());
+  } catch {
+    // fail silently — weather is non-essential
+  }
 }
 
 // ---------- Rendering ----------
@@ -497,10 +541,12 @@ function updateLastUpdated() {
 // thanks to the `defer` attribute on the script tag).
 refreshAll();
 updateHeaderDateTime();
+fetchWeather();
 
 // Auto-refresh every 60 seconds.
 setInterval(refreshAll, REFRESH_INTERVAL_MS);
 setInterval(updateHeaderDateTime, 1000);
+setInterval(fetchWeather, WEATHER_REFRESH_MS);
 
 // Also refresh when the tab becomes visible again (e.g. after your phone
 // was locked). Otherwise you'd stare at stale data for up to 60 seconds.
@@ -508,5 +554,6 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     refreshAll();
     updateHeaderDateTime();
+    fetchWeather();
   }
 });
