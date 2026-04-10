@@ -41,6 +41,11 @@ const STOPS = [
 // How many departures to show per card
 const MAX_DEPARTURES = 2;
 
+// In-memory departure tracking: detects when the leading bus rolls off the list
+// so we can show "left X ago" even though the API only returns upcoming trips.
+const _prevTopTs = {};     // cardId → ts of top departure seen on last refresh
+const _lastDepartedAt = {}; // cardId → Unix ts when the last bus departed
+
 // How often to auto-refresh (milliseconds)
 const REFRESH_INTERVAL_MS = 60 * 1000; // 60 seconds
 
@@ -119,21 +124,36 @@ function extractLine343(data, direction) {
 }
 
 /**
- * Find the most recently departed line-343 bus in the given direction
- * that left between 30 seconds and 5 minutes ago (window: 30s–300s).
- * Returns the raw arrival object (with .ts), or null.
+ * Compare the current leading departure against what was seen on the previous
+ * refresh. When the top bus changes and the old ts is now in the past, it has
+ * departed — record it. Returns the departed ts if within 5 minutes, else null.
+ *
+ * The API only returns upcoming trips so we can't query history; this in-memory
+ * approach detects the transition across refresh cycles instead.
  */
-function extractLastDeparted(data, direction) {
-  const arrivals = data?.arrivals ?? [];
+function trackAndGetLastDeparted(cardId, departures) {
   const nowSeconds = Math.floor(Date.now() / 1000);
+  const topTs = departures.length > 0 ? departures[0].ts : null;
+  const prevTop = _prevTopTs[cardId] ?? null;
 
-  const candidates = arrivals
-    .filter((a) => a.route_short_name === "343")
-    .filter((a) => a.trip_headsign === direction)
-    .filter((a) => a.ts < nowSeconds - 30 && a.ts >= nowSeconds - 300)
-    .sort((a, b) => b.ts - a.ts); // most recent first
+  // If the leading bus changed and the old one is now past, record its departure.
+  if (prevTop !== null && topTs !== prevTop && prevTop < nowSeconds) {
+    _lastDepartedAt[cardId] = prevTop;
+  }
 
-  return candidates.length > 0 ? candidates[0] : null;
+  if (topTs !== null) {
+    _prevTopTs[cardId] = topTs;
+  }
+
+  const lastTs = _lastDepartedAt[cardId] ?? null;
+  if (lastTs === null) return null;
+
+  // Expire after 5 minutes.
+  if (nowSeconds - lastTs > 300) {
+    _lastDepartedAt[cardId] = null;
+    return null;
+  }
+  return lastTs;
 }
 
 /**
@@ -339,6 +359,7 @@ function toDepartureObject(arrival) {
     destination: arrival.trip_headsign,
     clockTime: formatClockTime(departureDate),
     minutesLeft,
+    ts: arrival.ts,
     isLive: arrival.type !== "scheduled", // ovzoeker uses "scheduled" vs realtime
     delaySeconds: arrival.punctuality || 0,
   };
@@ -542,10 +563,9 @@ async function refreshOneStop(stop) {
   try {
     const data = await fetchStop(stop.id);
     const departures = extractLine343(data, stop.direction);
+    const lastDepartedTs = trackAndGetLastDeparted(stop.cardId, departures);
     renderCard(stop.cardId, departures, stop.walkMinutes, stop.travelEmoji);
-
-    const lastDeparted = extractLastDeparted(data, stop.direction);
-    renderLastLeft(stop.cardId, lastDeparted?.ts ?? null);
+    renderLastLeft(stop.cardId, lastDepartedTs);
 
     return data;
   } catch (err) {
