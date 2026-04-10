@@ -112,21 +112,88 @@ html,body {
   100%{ transform: translateY(75px)  translateX(-4px); opacity: 0; }
 }
 
-/* Sun rays */
-.wx-ray {
+/* ---- Rich sun (clear sky, non-night) ---- */
+.wx-sun {
   position: absolute;
-  bottom: -4px;
-  right: 10px;
-  width: 2px;
-  height: 30px;
-  background: linear-gradient(to top, rgba(255,210,60,0.4), transparent);
-  border-radius: 2px;
-  transform-origin: bottom center;
-  animation: wx-ray-pulse ease-in-out infinite alternate;
+  right: -14px;        /* partially clipped for a natural "peeking" look */
+  top: 50%;
+  transform: translateY(-50%);
+  width: 66px;
+  height: 66px;
 }
-@keyframes wx-ray-pulse {
-  from { opacity: 0.25; transform: scaleY(0.8)  rotate(calc(var(--r, 0) * 1deg)); }
-  to   { opacity: 0.75; transform: scaleY(1.15) rotate(calc(var(--r, 0) * 1deg)); }
+.wx-sun-halo {
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,210,50,0.22) 0%, rgba(255,175,20,0.08) 55%, transparent 72%);
+  animation: wx-halo-pulse 3s ease-in-out infinite alternate;
+}
+@keyframes wx-halo-pulse {
+  from { transform: scale(1);    opacity: 0.65; }
+  to   { transform: scale(1.28); opacity: 1;    }
+}
+.wx-sun-rays {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  /* 16 rays via repeating-conic-gradient */
+  background: repeating-conic-gradient(
+    rgba(255,210,50,0.40) 0deg 9deg,
+    transparent          9deg 22.5deg
+  );
+  animation: wx-sun-spin 9s linear infinite;
+}
+@keyframes wx-sun-spin {
+  to { transform: rotate(360deg); }
+}
+.wx-sun-core {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff9d0 0%, #ffe44d 45%, #ffaa00 100%);
+  box-shadow:
+    0 0 0 5px  rgba(255,215,50,0.18),
+    0 0 14px 6px rgba(255,190,30,0.58),
+    0 0 28px 10px rgba(255,150,10,0.30);
+  animation: wx-core-pulse 2.2s ease-in-out infinite alternate;
+}
+@keyframes wx-core-pulse {
+  from { transform: translate(-50%,-50%) scale(1);
+         box-shadow: 0 0 0 5px rgba(255,215,50,0.18), 0 0 14px 6px rgba(255,190,30,0.58), 0 0 28px 10px rgba(255,150,10,0.30); }
+  to   { transform: translate(-50%,-50%) scale(1.15);
+         box-shadow: 0 0 0 7px rgba(255,225,80,0.26), 0 0 22px 9px rgba(255,200,50,0.72), 0 0 42px 15px rgba(255,160,20,0.38); }
+}
+
+/* Sparkle particles that drift away from the sun */
+.wx-sparkle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255,238,100,0.95);
+  box-shadow: 0 0 4px 1px rgba(255,200,50,0.55);
+  animation: wx-sparkle-rise ease-out infinite;
+}
+@keyframes wx-sparkle-rise {
+  0%   { transform: translate(0, 0) scale(1.2); opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 0.5; }
+  100% { transform: translate(var(--dx, 4px), -34px) scale(0.1); opacity: 0; }
+}
+
+/* Sunny-day warm tint overrides */
+.app__header[data-weather="clear"][data-time-period="day"] {
+  background: linear-gradient(135deg, rgba(255,195,30,0.10) 0%, rgba(255,225,80,0.06) 100%);
+  border-bottom-color: #c9900a;
+}
+.app__header[data-weather="clear"][data-time-period="dawn"],
+.app__header[data-weather="clear"][data-time-period="dusk"] {
+  background: linear-gradient(135deg, rgba(255,140,30,0.22) 0%, rgba(255,210,70,0.13) 100%);
+  border-bottom-color: #d06818;
 }
 
 /* Stars (night + clear) */

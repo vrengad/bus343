@@ -473,21 +473,8 @@ function updateWeatherScene(weatherType, timePeriod) {
 
   scene.innerHTML = "";
 
-  const PARTICLE_MAP = {
-    rain:           { count: 18, cls: "drop"  },
-    drizzle:        { count: 10, cls: "drop"  },
-    storm:          { count: 26, cls: "drop"  },
-    snow:           { count: 14, cls: "flake" },
-    clear:          { count:  7, cls: "ray"   },
-    cloudy:         { count:  4, cls: "cloud" },
-    "partly-cloudy":{ count:  3, cls: "cloud" },
-    fog:            { count:  3, cls: "cloud" },
-  };
-
-  // Night + clear → stars instead of rays
-  const key = (weatherType === "clear" && timePeriod === "night") ? "_stars" : weatherType;
-
-  if (key === "_stars") {
+  // Night + clear → twinkling stars
+  if (weatherType === "clear" && timePeriod === "night") {
     for (let i = 0; i < 18; i++) {
       const el = document.createElement("span");
       el.className = "wx-particle wx-star";
@@ -500,7 +487,43 @@ function updateWeatherScene(weatherType, timePeriod) {
     return;
   }
 
-  const p = PARTICLE_MAP[key];
+  // Daytime / dawn / dusk clear → rich animated sun
+  if (weatherType === "clear") {
+    // Sun orb: halo → rotating rays → glowing core
+    const sun = document.createElement("div");
+    sun.className = "wx-sun";
+    for (const cls of ["wx-sun-halo", "wx-sun-rays", "wx-sun-core"]) {
+      const layer = document.createElement("div");
+      layer.className = cls;
+      sun.appendChild(layer);
+    }
+    scene.appendChild(sun);
+    // Sparkle particles scattered near the sun (right side)
+    for (let i = 0; i < 8; i++) {
+      const s = document.createElement("span");
+      s.className = "wx-sparkle";
+      s.style.right             = `${6 + Math.random() * 55}px`;
+      s.style.top               = `${8 + Math.random() * 82}%`;
+      s.style.animationDelay    = `${(Math.random() * 3).toFixed(2)}s`;
+      s.style.animationDuration = `${(1.2 + Math.random() * 2.2).toFixed(2)}s`;
+      s.style.setProperty("--dx", `${(-12 + Math.random() * 24).toFixed(1)}px`);
+      scene.appendChild(s);
+    }
+    return;
+  }
+
+  // All other weather types: particle-based
+  const PARTICLE_MAP = {
+    rain:           { count: 18, cls: "drop"  },
+    drizzle:        { count: 10, cls: "drop"  },
+    storm:          { count: 26, cls: "drop"  },
+    snow:           { count: 14, cls: "flake" },
+    cloudy:         { count:  4, cls: "cloud" },
+    "partly-cloudy":{ count:  3, cls: "cloud" },
+    fog:            { count:  3, cls: "cloud" },
+  };
+
+  const p = PARTICLE_MAP[weatherType];
   if (!p) return;
 
   for (let i = 0; i < p.count; i++) {
@@ -510,19 +533,12 @@ function updateWeatherScene(weatherType, timePeriod) {
     el.style.animationDelay   = `${(Math.random() * 2).toFixed(2)}s`;
     el.style.animationDuration= `${(0.6 + Math.random() * 1.2).toFixed(2)}s`;
 
-    if (p.cls === "ray") {
-      // spread rays at different angles fanning from the bottom-right corner
-      el.style.setProperty("--r", String(-36 + i * 12));
-      el.style.animationDuration = `${(1.4 + Math.random() * 1.2).toFixed(2)}s`;
-    }
-
     if (p.cls === "cloud") {
-      // randomise size, vertical position and drift speed for each cloud blob
-      const w = 44 + Math.random() * 40;         // 44–84 px wide
-      el.style.width           = `${w}px`;
-      el.style.top             = `${10 + Math.random() * 70}%`;
-      el.style.left            = "0";            // drift animation starts offscreen
-      el.style.animationDelay   = `${-(Math.random() * 12).toFixed(2)}s`; // stagger via negative delay
+      const w = 44 + Math.random() * 40;
+      el.style.width            = `${w}px`;
+      el.style.top              = `${10 + Math.random() * 70}%`;
+      el.style.left             = "0";
+      el.style.animationDelay   = `${-(Math.random() * 12).toFixed(2)}s`;
       el.style.animationDuration= `${(9 + Math.random() * 8).toFixed(2)}s`;
     }
 
