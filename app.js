@@ -501,13 +501,14 @@ function renderDepartureRow(d, walkMinutes, travelEmoji = "") {
   let catchClass = "";
   let catchLabel = "";
   if (walkMinutes != null) {
+    const prefix = travelEmoji ? `${travelEmoji} ` : "";
     if (d.minutesLeft >= walkMinutes + 1) {
       catchClass = " departure--catchable";
       const leaveIn = d.minutesLeft - walkMinutes;
-      catchLabel = `<div class="departure__catch departure__catch--go">${travelEmoji} Leave in ${leaveIn} min</div>`;
+      catchLabel = `<div class="departure__catch departure__catch--go">${prefix}Leave in ${leaveIn} min</div>`;
     } else if (d.minutesLeft >= walkMinutes - 1) {
       catchClass = " departure--run";
-      catchLabel = `<div class="departure__catch departure__catch--run">${travelEmoji} Leave now!</div>`;
+      catchLabel = `<div class="departure__catch departure__catch--run">${prefix}Leave now!</div>`;
     } else {
       catchClass = " departure--missed";
     }
