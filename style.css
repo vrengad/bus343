@@ -68,7 +68,7 @@ html,body {
 /* ---------- Catchability ---------- */
 .departure--catchable { border-left: 4px solid var(--good); background: rgba(5, 150, 105, 0.03); }
 .departure--run { border-left: 4px solid var(--warn); background: rgba(180, 83, 9, 0.03); animation: pulse-warn 2s infinite; }
-.departure--missed { border-left: 4px solid var(--danger); background: rgba(220, 38, 38, 0.03); opacity: 0.75; }
+.departure--missed { border-left: 4px solid var(--danger); background: color-mix(in srgb, var(--danger) 3%, transparent); opacity: 0.75; }
 .departure--missed .departure__minutes { color: var(--danger); }
 .departure--missed .departure__destination { color: var(--ink-muted); }
 .departure__catch { font-size: 12px; font-weight: 700; margin-top: 4px; }
@@ -76,7 +76,7 @@ html,body {
 .departure__catch--run { color: var(--warn); }
 
 /* ---------- Last-left badge ---------- */
-.card__last-left { display: inline-block; margin-top: 6px; padding: 2px 8px; background: rgba(220, 38, 38, 0.1); color: var(--danger); font-size: 11px; font-weight: 700; border-radius: 999px; }
+.card__last-left { display: inline-block; margin-top: 6px; padding: 2px 8px; background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger); font-size: 11px; font-weight: 700; border-radius: 999px; }
 .card__last-left:empty { display: none; }
 
 @keyframes pulse-warn { 
