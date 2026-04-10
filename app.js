@@ -27,12 +27,14 @@ const STOPS = [
     cardId: "card-home-to-station",
     direction: "Hoofddorp Station",
     walkMinutes: HOME_TRAVEL_MINUTES,
+    travelEmoji: "🏠🚲",  // cycle from home to Floriande stop
   },
   {
     id: "3894616",
     cardId: "card-station-to-home",
     direction: "Hoofddorp Floriande Zuidoost",
     walkMinutes: STATION_WALK_MINUTES,
+    travelEmoji: "🚉🚶",  // walk from train platform to bus platform C
   },
 ];
 
@@ -114,6 +116,24 @@ function extractLine343(data, direction) {
     .sort((a, b) => a.ts - b.ts)
     .slice(0, MAX_DEPARTURES)
     .map(toDepartureObject);
+}
+
+/**
+ * Find the most recently departed line-343 bus in the given direction
+ * that left between 30 seconds and 5 minutes ago (window: 30s–300s).
+ * Returns the raw arrival object (with .ts), or null.
+ */
+function extractLastDeparted(data, direction) {
+  const arrivals = data?.arrivals ?? [];
+  const nowSeconds = Math.floor(Date.now() / 1000);
+
+  const candidates = arrivals
+    .filter((a) => a.route_short_name === "343")
+    .filter((a) => a.trip_headsign === direction)
+    .filter((a) => a.ts < nowSeconds - 30 && a.ts >= nowSeconds - 300)
+    .sort((a, b) => b.ts - a.ts); // most recent first
+
+  return candidates.length > 0 ? candidates[0] : null;
 }
 
 /**
@@ -406,7 +426,7 @@ async function fetchWeather() {
 /**
  * Render a list of departures into a card, or an empty-state message.
  */
-function renderCard(cardId, departures, walkMinutes) {
+function renderCard(cardId, departures, walkMinutes, travelEmoji) {
   const card = document.getElementById(cardId);
   if (!card) return;
   const body = card.querySelector(".card__body");
@@ -420,15 +440,34 @@ function renderCard(cardId, departures, walkMinutes) {
   body.dataset.state = "ok";
   body.innerHTML = `
     <ul class="departures">
-      ${departures.map((d) => renderDepartureRow(d, walkMinutes)).join("")}
+      ${departures.map((d) => renderDepartureRow(d, walkMinutes, travelEmoji)).join("")}
     </ul>
   `;
 }
 
 /**
+ * Update the "left X ago" badge in a card's header.
+ * Pass null to clear the badge.
+ */
+function renderLastLeft(cardId, lastDepartedTs) {
+  const el = document.getElementById(`${cardId}-last-left`);
+  if (!el) return;
+
+  if (lastDepartedTs == null) {
+    el.textContent = "";
+    return;
+  }
+
+  const secsAgo = Math.floor(Date.now() / 1000) - lastDepartedTs;
+  el.textContent = secsAgo < 60
+    ? `left ${secsAgo}s ago`
+    : `left ${Math.floor(secsAgo / 60)}m ago`;
+}
+
+/**
  * Render one departure row. Returns an HTML string.
  */
-function renderDepartureRow(d, walkMinutes) {
+function renderDepartureRow(d, walkMinutes, travelEmoji = "") {
   const liveTag = d.isLive
     ? `<span class="live">● live</span>`
     : `<span>scheduled</span>`;
@@ -444,10 +483,10 @@ function renderDepartureRow(d, walkMinutes) {
     if (d.minutesLeft >= walkMinutes + 1) {
       catchClass = " departure--catchable";
       const leaveIn = d.minutesLeft - walkMinutes;
-      catchLabel = `<div class="departure__catch departure__catch--go">Leave in ${leaveIn} min</div>`;
+      catchLabel = `<div class="departure__catch departure__catch--go">${travelEmoji} Leave in ${leaveIn} min</div>`;
     } else if (d.minutesLeft >= walkMinutes - 1) {
       catchClass = " departure--run";
-      catchLabel = `<div class="departure__catch departure__catch--run">Leave now!</div>`;
+      catchLabel = `<div class="departure__catch departure__catch--run">${travelEmoji} Leave now!</div>`;
     } else {
       catchClass = " departure--missed";
     }
@@ -503,7 +542,11 @@ async function refreshOneStop(stop) {
   try {
     const data = await fetchStop(stop.id);
     const departures = extractLine343(data, stop.direction);
-    renderCard(stop.cardId, departures, stop.walkMinutes);
+    renderCard(stop.cardId, departures, stop.walkMinutes, stop.travelEmoji);
+
+    const lastDeparted = extractLastDeparted(data, stop.direction);
+    renderLastLeft(stop.cardId, lastDeparted?.ts ?? null);
+
     return data;
   } catch (err) {
     console.error(`Failed to load stop ${stop.id}:`, err);

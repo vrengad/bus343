@@ -11,6 +11,7 @@
     --accent-bright: #2563eb;
     --warn: #b45309;
     --good: #059669;
+    --danger: #dc2626;
     --radius: 12px;
     --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
     --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.08);
@@ -67,11 +68,16 @@ html,body {
 /* ---------- Catchability ---------- */
 .departure--catchable { border-left: 4px solid var(--good); background: rgba(5, 150, 105, 0.03); }
 .departure--run { border-left: 4px solid var(--warn); background: rgba(180, 83, 9, 0.03); animation: pulse-warn 2s infinite; }
-.departure--missed { opacity: 0.6; }
-.departure--missed .departure__minutes { text-decoration: line-through; color: var(--ink-muted); }
+.departure--missed { border-left: 4px solid var(--danger); background: rgba(220, 38, 38, 0.03); opacity: 0.75; }
+.departure--missed .departure__minutes { color: var(--danger); }
+.departure--missed .departure__destination { color: var(--ink-muted); }
 .departure__catch { font-size: 12px; font-weight: 700; margin-top: 4px; }
 .departure__catch--go { color: var(--good); }
 .departure__catch--run { color: var(--warn); }
+
+/* ---------- Last-left badge ---------- */
+.card__last-left { display: inline-block; margin-top: 6px; padding: 2px 8px; background: rgba(220, 38, 38, 0.1); color: var(--danger); font-size: 11px; font-weight: 700; border-radius: 999px; }
+.card__last-left:empty { display: none; }
 
 @keyframes pulse-warn { 
     0%, 100% { background: rgba(180, 83, 9, 0.03); }
@@ -108,6 +114,7 @@ html,body {
         --accent: #4a90e2;
         --accent-soft: #1a2942;
         --accent-bright: #5ba3f5;
+        --danger: #ef4444;
         --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
         --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.4);
     }
