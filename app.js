@@ -664,7 +664,7 @@ function renderDepartureRow(d, walkMinutes, travelEmoji = "") {
       </div>
       <div class="departure__time">
         <div class="departure__minutes">${formatMinutesLeft(d.minutesLeft)}</div>
-        <div class="departure__clock">${d.clockTime}</div>
+        <div class="departure__clock">${escapeHtml(d.clockTime)}</div>
         ${catchLabel}
       </div>
     </li>

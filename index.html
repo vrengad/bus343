@@ -4,6 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#1e4d8c" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none';
+                 script-src  'self';
+                 style-src   'self';
+                 connect-src 'self'
+                             https://bus343-proxy.vrengad.workers.dev
+                             https://api.open-meteo.com;
+                 img-src     'self';" />
   <title>Bus 343 — My Commute</title>
   <link rel="stylesheet" href="style.css" />
 </head>
