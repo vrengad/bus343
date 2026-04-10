@@ -56,6 +56,12 @@ function _ldWrite(cardId, ts) {
 function _ldClear(cardId) {
   try { localStorage.removeItem(`bus343_ld_${cardId}`); } catch {}
 }
+function _ldReadPrev(cardId) {
+  try { const v = localStorage.getItem(`bus343_prev_${cardId}`); return v ? +v : null; } catch { return null; }
+}
+function _ldWritePrev(cardId, ts) {
+  try { localStorage.setItem(`bus343_prev_${cardId}`, String(ts)); } catch {}
+}
 
 // How often to auto-refresh (milliseconds)
 const REFRESH_INTERVAL_MS = 60 * 1000; // 60 seconds
@@ -145,9 +151,21 @@ function extractLine343(data, direction) {
 function trackAndGetLastDeparted(cardId, departures) {
   const nowSeconds = Math.floor(Date.now() / 1000);
   const topTs = departures.length > 0 ? departures[0].ts : null;
-  const prevTop = _prevTopTs[cardId] ?? null;
+  // Gap-2 fix: fall back to localStorage for prevTop so iOS page reloads don't
+  // lose the "what was the last leading bus" state and require two full cycles
+  // before departure detection resumes.
+  const prevTop = _prevTopTs[cardId] ?? _ldReadPrev(cardId) ?? null;
 
-  // If the leading bus changed and the old one is now past, record its departure.
+  // Gap-1 fix: the leading bus is still in the 30 s grace window but already
+  // past — record it immediately, even on the very first call (prevTop may be null).
+  if (topTs !== null && topTs < nowSeconds) {
+    if ((_lastDepartedAt[cardId] ?? 0) < topTs) {
+      _lastDepartedAt[cardId] = topTs;
+      _ldWrite(cardId, topTs);
+    }
+  }
+
+  // Cross-refresh detection: leading bus changed and old ts is now past.
   if (prevTop !== null && topTs !== prevTop && prevTop < nowSeconds) {
     _lastDepartedAt[cardId] = prevTop;
     _ldWrite(cardId, prevTop); // survive page reloads
@@ -155,6 +173,7 @@ function trackAndGetLastDeparted(cardId, departures) {
 
   if (topTs !== null) {
     _prevTopTs[cardId] = topTs;
+    _ldWritePrev(cardId, topTs); // Gap-2 fix: persist for iOS page reloads
   }
 
   // Fall back to localStorage when memory is empty (e.g. after iOS page reload).
