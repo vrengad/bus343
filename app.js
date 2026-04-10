@@ -46,6 +46,17 @@ const MAX_DEPARTURES = 2;
 const _prevTopTs = {};     // cardId → ts of top departure seen on last refresh
 const _lastDepartedAt = {}; // cardId → Unix ts when the last bus departed
 
+// localStorage helpers — keep the badge alive across iOS page reloads.
+function _ldRead(cardId) {
+  try { const v = localStorage.getItem(`bus343_ld_${cardId}`); return v ? +v : null; } catch { return null; }
+}
+function _ldWrite(cardId, ts) {
+  try { localStorage.setItem(`bus343_ld_${cardId}`, String(ts)); } catch {}
+}
+function _ldClear(cardId) {
+  try { localStorage.removeItem(`bus343_ld_${cardId}`); } catch {}
+}
+
 // How often to auto-refresh (milliseconds)
 const REFRESH_INTERVAL_MS = 60 * 1000; // 60 seconds
 
@@ -139,20 +150,24 @@ function trackAndGetLastDeparted(cardId, departures) {
   // If the leading bus changed and the old one is now past, record its departure.
   if (prevTop !== null && topTs !== prevTop && prevTop < nowSeconds) {
     _lastDepartedAt[cardId] = prevTop;
+    _ldWrite(cardId, prevTop); // survive page reloads
   }
 
   if (topTs !== null) {
     _prevTopTs[cardId] = topTs;
   }
 
-  const lastTs = _lastDepartedAt[cardId] ?? null;
+  // Fall back to localStorage when memory is empty (e.g. after iOS page reload).
+  const lastTs = _lastDepartedAt[cardId] ?? _ldRead(cardId);
   if (lastTs === null) return null;
 
   // Expire after 5 minutes.
   if (nowSeconds - lastTs > 300) {
     _lastDepartedAt[cardId] = null;
+    _ldClear(cardId);
     return null;
   }
+  _lastDepartedAt[cardId] = lastTs; // warm memory from storage
   return lastTs;
 }
 
