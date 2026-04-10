@@ -1,0 +1,17 @@
+{
+  "name": "bus343",
+  "version": "1.0.0",
+  "description": "Personal commute app for bus line 343 in Hoofddorp",
+  "main": "app.js",
+  "scripts": {
+    "test": "npx playwright test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "playwright": "^1.59.1",
+    "serve": "^14.2.4"
+  }
+}
