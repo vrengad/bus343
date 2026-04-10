@@ -440,6 +440,83 @@ function updateHeaderDateTime() {
 
 // ---------- Weather ----------
 
+function classifyWeather(code) {
+  if (code === 0)                  return "clear";
+  if (code === 1 || code === 2)    return "partly-cloudy";
+  if (code === 3)                  return "cloudy";
+  if (code === 45 || code === 48)  return "fog";
+  if (code >= 51 && code <= 57)    return "drizzle";
+  if (code >= 61 && code <= 67)    return "rain";
+  if (code >= 71 && code <= 77)    return "snow";
+  if (code >= 80 && code <= 82)    return "rain";
+  if (code >= 95 && code <= 99)    return "storm";
+  return "cloudy";
+}
+
+function getTimePeriod() {
+  const hour = +new Intl.DateTimeFormat("en-US", {
+    hour: "numeric", hour12: false, timeZone: APP_TIMEZONE,
+  }).format(new Date());
+  if (hour >= 6  && hour < 8)  return "dawn";
+  if (hour >= 8  && hour < 18) return "day";
+  if (hour >= 18 && hour < 21) return "dusk";
+  return "night";
+}
+
+function updateWeatherScene(weatherType, timePeriod) {
+  const header = document.querySelector(".app__header");
+  const scene  = document.getElementById("weather-scene");
+  if (!header || !scene) return;
+
+  header.dataset.weather    = weatherType;
+  header.dataset.timePeriod = timePeriod;
+
+  scene.innerHTML = "";
+
+  const PARTICLE_MAP = {
+    rain:    { count: 18, cls: "drop"  },
+    drizzle: { count: 10, cls: "drop"  },
+    storm:   { count: 26, cls: "drop"  },
+    snow:    { count: 14, cls: "flake" },
+    clear:   { count:  7, cls: "ray"   },
+  };
+
+  // Night + clear → stars instead of rays
+  const key = (weatherType === "clear" && timePeriod === "night") ? "_stars" : weatherType;
+
+  if (key === "_stars") {
+    for (let i = 0; i < 18; i++) {
+      const el = document.createElement("span");
+      el.className = "wx-particle wx-star";
+      el.style.left             = `${Math.random() * 100}%`;
+      el.style.top              = `${Math.random() * 100}%`;
+      el.style.animationDelay   = `${(Math.random() * 2).toFixed(2)}s`;
+      el.style.animationDuration= `${(1.2 + Math.random() * 1.5).toFixed(2)}s`;
+      scene.appendChild(el);
+    }
+    return;
+  }
+
+  const p = PARTICLE_MAP[key];
+  if (!p) return;
+
+  for (let i = 0; i < p.count; i++) {
+    const el = document.createElement("span");
+    el.className = `wx-particle wx-${p.cls}`;
+    el.style.left             = `${Math.random() * 100}%`;
+    el.style.animationDelay   = `${(Math.random() * 2).toFixed(2)}s`;
+    el.style.animationDuration= `${(0.6 + Math.random() * 1.2).toFixed(2)}s`;
+
+    if (p.cls === "ray") {
+      // spread rays at different angles fanning from the bottom-right corner
+      el.style.setProperty("--r", String(-36 + i * 12));
+      el.style.animationDuration = `${(1.4 + Math.random() * 1.2).toFixed(2)}s`;
+    }
+
+    scene.appendChild(el);
+  }
+}
+
 function weatherCodeToEmoji(code) {
   if (code === 0)                 return "☀️";
   if (code === 1)                 return "🌤️";
@@ -464,6 +541,7 @@ function renderWeather(data) {
   const windPart = c.wind_speed_10m > 15 ? ` · ${Math.round(c.wind_speed_10m)}↗` : "";
   const rainPart = c.precipitation > 0 ? " 🌂" : "";
   el.textContent = `${emoji} ${temp}°C${windPart}${rainPart}`;
+  updateWeatherScene(classifyWeather(c.weather_code), getTimePeriod());
 }
 
 async function fetchWeather() {
@@ -639,6 +717,8 @@ function updateLastUpdated() {
 // thanks to the `defer` attribute on the script tag).
 refreshAll();
 updateHeaderDateTime();
+// Apply time-period background tint immediately; particles arrive with weather data.
+updateWeatherScene("cloudy", getTimePeriod());
 fetchWeather();
 
 // Auto-refresh every 60 seconds.
