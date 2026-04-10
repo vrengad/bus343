@@ -474,11 +474,14 @@ function updateWeatherScene(weatherType, timePeriod) {
   scene.innerHTML = "";
 
   const PARTICLE_MAP = {
-    rain:    { count: 18, cls: "drop"  },
-    drizzle: { count: 10, cls: "drop"  },
-    storm:   { count: 26, cls: "drop"  },
-    snow:    { count: 14, cls: "flake" },
-    clear:   { count:  7, cls: "ray"   },
+    rain:           { count: 18, cls: "drop"  },
+    drizzle:        { count: 10, cls: "drop"  },
+    storm:          { count: 26, cls: "drop"  },
+    snow:           { count: 14, cls: "flake" },
+    clear:          { count:  7, cls: "ray"   },
+    cloudy:         { count:  4, cls: "cloud" },
+    "partly-cloudy":{ count:  3, cls: "cloud" },
+    fog:            { count:  3, cls: "cloud" },
   };
 
   // Night + clear → stars instead of rays
@@ -511,6 +514,16 @@ function updateWeatherScene(weatherType, timePeriod) {
       // spread rays at different angles fanning from the bottom-right corner
       el.style.setProperty("--r", String(-36 + i * 12));
       el.style.animationDuration = `${(1.4 + Math.random() * 1.2).toFixed(2)}s`;
+    }
+
+    if (p.cls === "cloud") {
+      // randomise size, vertical position and drift speed for each cloud blob
+      const w = 44 + Math.random() * 40;         // 44–84 px wide
+      el.style.width           = `${w}px`;
+      el.style.top             = `${10 + Math.random() * 70}%`;
+      el.style.left            = "0";            // drift animation starts offscreen
+      el.style.animationDelay   = `${-(Math.random() * 12).toFixed(2)}s`; // stagger via negative delay
+      el.style.animationDuration= `${(9 + Math.random() * 8).toFixed(2)}s`;
     }
 
     scene.appendChild(el);
