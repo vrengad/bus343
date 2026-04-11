@@ -259,7 +259,10 @@ html,body {
 .strip__track { position: relative; height: 16px; margin: 0 28px; }
 .strip__line { position: absolute; top: 50%; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--border) 0%, var(--accent-soft) 50%, var(--border) 100%); border-radius: 2px; transform: translateY(-50%); }
 .strip__stop { position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; border: 3px solid var(--accent); background: var(--card-bg); transform: translate(-50%, -50%); z-index: 1; box-shadow: 0 0 0 3px var(--accent-soft); }
-.strip__bus { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; background: linear-gradient(135deg, var(--accent) 0%, var(--accent-bright) 100%); box-shadow: 0 0 0 3px var(--accent-soft), 0 2px 8px rgba(30, 77, 140, 0.3); transform: translate(-50%, -50%); transition: left 0.8s cubic-bezier(0.4, 0, 0.2, 1); z-index: 2; }
+.strip__stop--floriande { left: 0%; }
+.strip__stop--calatravabrug { left: 50%; }
+.strip__stop--station { left: 100%; }
+.strip__bus { display: none; position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; background: linear-gradient(135deg, var(--accent) 0%, var(--accent-bright) 100%); box-shadow: 0 0 0 3px var(--accent-soft), 0 2px 8px rgba(30, 77, 140, 0.3); transform: translate(-50%, -50%); transition: left 0.8s cubic-bezier(0.4, 0, 0.2, 1); z-index: 2; }
 .strip__bus::after { content: ""; position: absolute; top: 50%; width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; transform: translateY(-50%); }
 .strip__bus--to-station::after { left: 15px; border-left: 6px solid var(--accent-bright); }
 .strip__bus--to-floriande::after { right: 15px; border-right: 6px solid var(--accent-bright); }

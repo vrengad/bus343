@@ -368,7 +368,7 @@ function renderPositionStrip(pos) {
   for (const bus of pos.buses) {
     const busEl = busEls[bus.key];
     if (!busEl) continue;
-    busEl.style.display = "";
+    busEl.style.display = "block";
     busEl.style.left = bus.stripPercent + "%";
   }
 
