@@ -124,6 +124,16 @@ async function fetchStop(stopId) {
 // ---------- Data shaping ----------
 
 /**
+ * Flexible headsign comparison: strips commas and normalises whitespace so that
+ * "Hoofddorp, Station" matches the configured "Hoofddorp Station" (and vice-versa).
+ * Dutch GTFS feeds periodically toggle between "Plaats Halte" and "Plaats, Halte".
+ */
+function matchesDirection(headsign, direction) {
+  const norm = (s) => s.replace(/,/g, "").replace(/\s+/g, " ").trim();
+  return norm(headsign) === norm(direction);
+}
+
+/**
  * Take raw ovzoeker arrivals, filter to line 343 in the right direction,
  * skip anything in the past, sort by time, and return up to MAX_DEPARTURES.
  */
@@ -133,7 +143,7 @@ function extractLine343(data, direction) {
 
   return arrivals
     .filter((a) => a.route_short_name === "343")
-    .filter((a) => a.trip_headsign === direction)
+    .filter((a) => matchesDirection(a.trip_headsign, direction))
     .filter((a) => a.ts >= nowSeconds - 30) // keep "now" (up to 30s ago)
     .sort((a, b) => a.ts - b.ts)
     .slice(0, MAX_DEPARTURES)
@@ -200,7 +210,7 @@ function extractNextArrivalForDirection(data, direction, maxPastSeconds = 30) {
 
   const upcoming = arrivals
     .filter((a) => a.route_short_name === "343")
-    .filter((a) => a.trip_headsign === direction)
+    .filter((a) => matchesDirection(a.trip_headsign, direction))
     .filter((a) => a.ts >= nowSeconds - maxPastSeconds)
     .sort((a, b) => a.ts - b.ts);
 
@@ -217,7 +227,7 @@ function extractDepartureFallback(data, direction) {
 
   const candidates = arrivals
     .filter((a) => a.route_short_name === "343")
-    .filter((a) => a.trip_headsign === direction)
+    .filter((a) => matchesDirection(a.trip_headsign, direction))
     .filter((a) => a.ts >= nowSeconds - TRIP_DURATION_SECS)
     .sort((a, b) => a.ts - b.ts);
 
