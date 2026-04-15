@@ -38,6 +38,13 @@ html,body {
 .app__meta { display: flex; flex-direction: row; align-items: center; gap: 10px; position: relative; z-index: 1; }
 .app__weather { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); white-space: nowrap; }
 .app__datetime { margin: 0; color: var(--ink-muted); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* On narrow viewports (mobile portrait), let the header wrap so the datetime
+   doesn't get truncated by the header's overflow:hidden. The weather + datetime
+   drop onto their own row, right-aligned below the brand. */
+@media (max-width: 480px) {
+  .app__header { flex-wrap: wrap; row-gap: 6px; }
+  .app__meta { width: 100%; justify-content: flex-end; }
+}
 @media (max-width: 380px) { .app__brand-label { display: none; } }
 
 /* ---------- Weather scene overlay ---------- */
